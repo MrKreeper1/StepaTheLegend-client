@@ -13,22 +13,31 @@ import requests
 from threading import Thread
 import pybase64
 import os, os.path
+import urllib3
 
 def read_config():
 	with open("./config", "r") as f:
 		lines = f.readlines()
 	#print(lines)
 	
-	return lines[0][:-1], int(lines[1][:-1]), int(lines[2][:-1]), int(lines[3][:-1]), int(lines[4])
-
-def write_config(ip=-1, port=-1, show_im=-1, update_ol=-1, toff_ol=-1):
-	ip1, port1, show_im1, update_ol1, toff_ol1 = read_config()
+	return lines[0][:-1], int(lines[1][:-1]), int(lines[2][:-1]), int(lines[3][:-1]), int(lines[4][:-1]), lines[5][:-1], int(lines[6])
+	
+def write_config(ip=-1, port=-1, show_im=-1, update_ol=-1, toff_ol=-1, serv_ip=-1, serv_port=-1):
+	ip1, port1, show_im1, update_ol1, toff_ol1, serv_ip1, serv_port1 = read_config()
+	ip2 = ip if ip != -1 else ip1
+	port2 = port if port != -1 else port1
+	show_im2 = show_im if show_im != -1 else show_im1
+	update_ol2 = update_ol if update_ol != -1 else update_ol1
+	toff_ol2 = toff_ol if toff_ol != -1 else toff_ol1
+	serv_ip2 = serv_ip if serv_ip != -1 else serv_ip1
+	serv_port2 = serv_port if serv_port != -1 else serv_port1
+	
 	with open("./config", "w") as f:
-		f.write(f"{ip if ip != -1 else ip1}\n{port if port != -1 else port1}\n{show_im if show_im != -1 else show_im1}\n{update_ol if update_ol != -1 else update_ol1}\n{toff_ol if toff_ol != -1 else toff_ol1}\n")
-	print(f"[CONFIG]: Updating config to: {ip if ip != -1 else ip1} {port if port != -1 else port1} {show_im if show_im != -1 else show_im1} {update_ol if update_ol != -1 else update_ol1} {toff_ol if toff_ol != -1 else toff_ol1}")
-STEPA_KRUTOY_IP, STEPA_KRUTOY_PORT, SHOW_IMAGE, UPDATE_ON_LOAD, TURNOFF_UPDATING_OL = read_config()
+		f.write(f"{ip2}\n{port2}\n{show_im2}\n{update_ol2}\n{toff_ol2}\n{serv_ip2}\n{serv_port2}")
+	print(f"[CONFIG]: Updating config to: {ip2} {port2} {show_im2} {update_ol2} {toff_ol2} {serv_ip2} {serv_port2}")
+STEPA_KRUTOY_IP, STEPA_KRUTOY_PORT, SHOW_IMAGE, UPDATE_ON_LOAD, TURNOFF_UPDATING_OL, STEPA_SERVER_IP, STEPA_SERVER_PORT = read_config()
 
-print(f"[CONFIG]: {STEPA_KRUTOY_IP} {STEPA_KRUTOY_PORT} {SHOW_IMAGE} {UPDATE_ON_LOAD} {TURNOFF_UPDATING_OL}")
+print(f"[CONFIG]: {STEPA_KRUTOY_IP} {STEPA_KRUTOY_PORT} {SHOW_IMAGE} {UPDATE_ON_LOAD} {TURNOFF_UPDATING_OL} {STEPA_SERVER_IP} {STEPA_SERVER_PORT}")
 
 app = Flask("StepaKrutoyClient")
 
@@ -118,6 +127,9 @@ th.start()
 
 camlist = [1]
 
+namesprev = []
+
+
 # loop over frames from the video file stream
 while True:
 	# grab the frame from the threaded video stream and resize it
@@ -160,11 +172,10 @@ while True:
 			#If someone in your dataset is identified, print their name on the screen
 			if currentname != name:
 				currentname = name
-				print(currentname)
+				print("Found:", currentname)
 
 		# update the list of names
 		names.append(name)
-
 	# loop over the recognized faces
 	for ((top, right, bottom, left), name) in zip(boxes, names):
 		# draw the predicted face name on the image - color is in BGR
@@ -173,6 +184,13 @@ while True:
 		y = top - 15 if top - 15 > 15 else top + 15
 		cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX,
 			.8, (0, 255, 255), 2)
+	if namesprev != names and names not in namesprev and not flag:
+		print("Posting to", f"http://{STEPA_SERVER_IP}:{STEPA_SERVER_PORT}/names/:", {"names": ";".join(names), "photo": str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1][:20] + "..." + str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1][-20:], "date": time.ctime()}, "-", end="")
+		r = requests.post(f"http://{STEPA_SERVER_IP}:{STEPA_SERVER_PORT}/names/", data={"names": ";".join(names), "photo": str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1], "date": time.ctime()})
+		print(r)
+	elif flag:
+		print("[FLAG] =", flag)
+
 
 	# display the image to our screen
 	frame2 = frame
