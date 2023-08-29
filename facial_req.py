@@ -65,7 +65,9 @@ def reload_encodings(rel = True):
 #vs = VideoStream(src=2,framerate=10).start()
 
 reload_encodings(rel=UPDATE_ON_LOAD)
-if UPDATE_ON_LOAD and TURNOFF_UPDATE_OL: write_config(toff_ol=0)
+if UPDATE_ON_LOAD and TURNOFF_UPDATING_OL: write_config(update_ol=0, toff_ol=0)
+
+#192.168.139.46:5000
 
 frame2 = ""
 
@@ -103,10 +105,11 @@ def fl_serv():
 	@app.route("/reload/", methods=["POST"])
 	def rel():
 		global flag
+		
 		if flag:
 			print("[FLAG] =", flag)
 			return Response(status=501)
-		write_config(update_ol=1, toff_ol=1)
+		#write_config(update_ol=1, toff_ol=1)
 		return Response(status=200)
 	
 	app.run(port=STEPA_KRUTOY_PORT, host=STEPA_KRUTOY_IP)
@@ -185,9 +188,18 @@ while True:
 		cv2.putText(frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX,
 			.8, (0, 255, 255), 2)
 	if namesprev != names and names not in namesprev and not flag:
-		print("Posting to", f"http://{STEPA_SERVER_IP}:{STEPA_SERVER_PORT}/names/:", {"names": ";".join(names), "photo": str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1][:20] + "..." + str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1][-20:], "date": time.ctime()}, "-", end="")
-		r = requests.post(f"http://{STEPA_SERVER_IP}:{STEPA_SERVER_PORT}/names/", data={"names": ";".join(names), "photo": str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1], "date": time.ctime()})
-		print(r)
+		names1 = names[:]
+		if "Unknown" in names:
+			names1.remove("Unknown")
+			if len(names1):
+				print("Posting to", f"http://{STEPA_SERVER_IP}:{STEPA_SERVER_PORT}/names/:", {"names": ";".join(names1), "photo": str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1][:20] + "..." + str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1][-20:], "date": time.ctime()}, "-", end="")
+				r = requests.post(f"http://{STEPA_SERVER_IP}:{STEPA_SERVER_PORT}/names/", data={"names": ";".join(names1), "photo": str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1], "date": time.ctime()})
+				print("", r)
+		else:
+			print("Posting to", f"http://{STEPA_SERVER_IP}:{STEPA_SERVER_PORT}/names/:", {"names": ";".join(names), "photo": str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1][:20] + "..." + str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1][-20:], "date": time.ctime()}, "-", end="")
+			r = requests.post(f"http://{STEPA_SERVER_IP}:{STEPA_SERVER_PORT}/names/", data={"names": ";".join(names), "photo": str(pybase64.b64encode(cv2.imencode('.jpg', frame2)[1].tobytes()))[2:-1], "date": time.ctime()})
+			print("", r)
+		
 	elif flag:
 		print("[FLAG] =", flag)
 
